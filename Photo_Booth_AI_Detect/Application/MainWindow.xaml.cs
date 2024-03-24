@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -37,7 +38,7 @@ namespace WpfExample
         object ErrLock = new object();
 
         #endregion
-        
+
         public MainWindow()
         {
             try
@@ -196,12 +197,41 @@ namespace WpfExample
 
         private void TakePhotoButton_Click(object sender, RoutedEventArgs e)
         {
+            //try
+            //{
+            //    if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
+            //    else MainCamera.TakePhotoAsync();
+            //}
+            //catch (Exception ex) { ReportError(ex.Message, false); }
+
             try
             {
-                if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
-                else MainCamera.TakePhotoAsync();
+                int delaySeconds = 5;
+
+                MessageBox.Show($"Photo will be taken in {delaySeconds} seconds.", "Countdown", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                TakePhotoButton.IsEnabled = false;
+                VideoButton.IsEnabled = false;
+
+                System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer();
+                timer.Interval = TimeSpan.FromSeconds(delaySeconds);
+                timer.Tick += (senderTimer, eTimer) =>
+                {
+                    if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
+                    else MainCamera.TakePhotoAsync();
+
+                    TakePhotoButton.IsEnabled = true;
+                    VideoButton.IsEnabled = true;
+
+                    timer.Stop();
+                };
+
+                timer.Start();
             }
-            catch (Exception ex) { ReportError(ex.Message, false); }
+            catch (Exception ex)
+            {
+                ReportError(ex.Message, false);
+            }
         }
 
         private void VideoButton_Click(object sender, RoutedEventArgs e)
