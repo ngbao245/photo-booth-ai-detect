@@ -1,0 +1,339 @@
+<div>Teachable Machine Pose Model</div>
+<button type="button" onclick="init()">Start</button>
+<div><canvas id="canvas" width="200" height="200"></canvas></div>
+<div id="label-container"></div>
+<label id="myLabel">Label sẽ biến mất sau 3 giây</label>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+<script type="text/javascript">
+  // More API functions here:
+  // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/pose
+
+  // the link to your model provided by Teachable Machine export panel
+  const URL = "https://teachablemachine.withgoogle.com/models/yrGGpYgPT/";
+  let model, webcam, ctx, labelContainer, maxPredictions;
+
+  async function init() {
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+
+    // load the model and metadata
+    // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+    // Note: the pose library adds a tmPose object to your window (window.tmPose)
+    model = await tmPose.load(modelURL, metadataURL);
+    maxPredictions = model.getTotalClasses();
+
+    // Convenience function to setup a webcam
+    const size = 200;
+    const flip = true; // whether to flip the webcam
+    // webcam = new tmPose.Webcam(size, size, flip); // width, height, flip
+    // await webcam.setup(); // request access to the webcam
+    // await webcam.play();
+    window.requestAnimationFrame(loop);
+
+    // append/get elements to the DOM
+    // const canvas = document.getElementById("canvas");
+    // canvas.width = size;
+    // canvas.height = size;
+    // ctx = canvas.getContext("2d");
+    labelContainer = document.getElementById("label-container");
+    for (let i = 0; i < maxPredictions; i++) {
+      // and class labels
+      labelContainer.appendChild(document.createElement("div"));
+    }
+  }
+
+  async function loop(timestamp) {
+    // webcam.update(); // update the webcam frame
+    // await predict();
+    // var byteImageFromAPI = await fetchDataFromAPI(
+    //   "http://localhost:24112/api/GetByteImage"
+    // )
+    //   .then((base64) => {
+    //     console.log("Base64 data from API:", base64);
+    //     // Thực hiện xử lý với dữ liệu base64 ở đây
+    //   })
+    //   .catch((error) => {
+    //     console.error("Error fetching data:", error);
+    //   });
+
+    var resultImageByte = await fetchDataFromAPI(imageUrl);
+    // const imageData = bytesToImageData(resultImageByte, 200, 200);
+    // console.log(imageData);
+    // await predict(imageData);
+
+    // console.log("api return", resultImageByte);
+    // var temp = await loadImageFromUrlToByte(imageUrl);
+    var imgs = await convertByteToImage(resultImageByte);
+    // var imgss = await convertByteToImage(byteImageFromAPI);
+    // console.log("byte to image", imgs);
+
+    // Chuỗi byte của ảnh (ví dụ)
+    const byteString = "data:image/jpeg;base64," + resultImageByte; // Thay thế chuỗi này bằng dữ liệu byte thực tế của ảnh
+
+    // Tạo một đối tượng hình ảnh
+    const image = new Image();
+
+    // Đặt nguồn của hình ảnh là URL dạng Data URI từ chuỗi byte
+    image.src = byteString;
+
+    // Xử lý khi hình ảnh được tải thành công
+    image.onload = function () {
+      const canvas = document.getElementById("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+
+      // Vẽ hình ảnh vào canvas
+      context.drawImage(image, 0, 0);
+
+      // Lấy dữ liệu từ canvas
+      const imageData = context.getImageData(0, 0, image.width, image.height);
+
+      // Gọi hàm predict với ImageData như đối số
+      predict(canvas);
+    };
+    // Tạo một phần tử div mới
+
+    // await predict(image);
+    window.requestAnimationFrame(loop);
+  }
+
+  async function predict(img) {
+    // Prediction #1: run input through posenet
+    // estimatePose can take in an image, video or canvas html element
+    // const img = new Image();
+
+    // const loadImage = new Promise((resolve, reject) => {
+    //   img.onload = () => resolve(img);
+    //   img.onerror = reject;
+    //   img.src = imageUrl;
+    // });
+
+    // await loadImage;
+
+    // console.log(img);
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Tạo một ImageData từ dữ liệu và kích thước
+    const width = 200; // Width của ảnh
+    const height = 200; // Height của ảnh
+    const imageData = ctx.createImageData(width, height);
+    // ctx.putImageData(img, 500, 500);
+
+    console.log(img);
+    const maxPredictions = model.getTotalClasses();
+    const { pose, posenetOutput } = await model.estimatePose(img, true);
+    console.log("PosenetOutPut", posenetOutput);
+    // Prediction 2: run input through teachable machine classification model
+    const prediction = await model.predictTopK(posenetOutput, maxPredictions);
+    console.log("Prediction", prediction);
+    // labelContainer.innerText = ` ${prediction[0].className} : ${prediction[0].probability}`;
+
+    if (
+      prediction[0].probability >= 0.999 &&
+      prediction[0].className == "Hand"
+    ) {
+      //   Thiết lập lại thuộc tính display của label container để hiển thị label
+      labelContainer.style.display = "block";
+
+      labelContainer.innerText = prediction[0].className;
+      sendStringToAPI(prediction[0].className);
+      // // Đặt thời gian chờ là 3 giây
+      const delayTime = 3000;
+
+      // Hàm ẩn label sau một khoảng thời gian
+      function hideLabel() {
+        labelContainer.style.display = "none"; // Ẩn label
+      }
+
+      // Sử dụng setTimeout để đợi 3 giây trước khi gọi hàm ẩn label
+      setTimeout(hideLabel, delayTime);
+    } else {
+      // labelContainer.style.display = "block";
+      // labelContainer.innerText = ` ${prediction[0].className} : ${prediction[0].probability}`;
+    }
+
+    sendStringToAPI("basic");
+
+
+    // Lấy tham chiếu đến label
+
+    // // // Đặt thời gian chờ là 3 giây
+    // const delayTime = 3000;
+
+    // // Hàm ẩn label sau một khoảng thời gian
+    // function hideLabel() {
+    //   labelContainer.style.display = "none"; // Ẩn label
+    // }
+
+    // // Sử dụng setTimeout để đợi 3 giây trước khi gọi hàm ẩn label
+    // setTimeout(hideLabel, delayTime);
+
+    // finally draw the poses
+    // drawPose(pose);
+  }
+
+  function drawPose(pose) {
+    if (webcam.canvas) {
+      ctx.drawImage(webcam.canvas, 0, 0);
+      // draw the keypoints and skeleton
+      if (pose) {
+        const minPartConfidence = 0.5;
+        tmPose.drawKeypoints(pose.keypoints, minPartConfidence, ctx);
+        tmPose.drawSkeleton(pose.keypoints, minPartConfidence, ctx);
+      }
+    }
+  }
+
+  const imageUrl = "http://localhost:24112/api/GetByteImage";
+
+  // test
+
+  async function fetchDataFromAPI(apiUrl) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const response = await fetch(apiUrl);
+
+        // Kiểm tra nếu response không thành công (status code không trong khoảng từ 200 đến 299)
+        if (!response.ok) {
+          throw new Error("Failed to fetch data");
+        }
+
+        var a = await response.json();
+        var b = a.data;
+
+        console.log(b);
+
+        // // Lấy dữ liệu dưới dạng ArrayBuffer (chuỗi byte)
+        // const byteData = await response.arrayBuffer();
+
+        // // console.log("ByteData:", byteData.byteLength);
+
+        // // Chuyển đổi ArrayBuffer thành một mảng byte
+        // const byteArray = new Uint8Array(byteData);
+        // // Chuyển đổi mảng byte thành chuỗi dữ liệu byte dưới dạng base64
+        // let byteString = "";
+        // for (let i = 0; i < byteArray.length; i++) {
+        //   byteString += String.fromCharCode(byteArray[i]);
+        // }
+
+        // const base64data = btoa(byteString);
+
+        // console.log("Base64DataLength: ", base64data.length);
+
+        // Trả về mảng byte
+        resolve(b);
+      } catch (error) {
+        console.error("Error fetching data:", error.message);
+        reject(error); // Reject promise để bắt ở nơi gọi hàm nếu cần
+      }
+    });
+  }
+
+  async function loadImageFromUrlToByte(url) {
+    return new Promise((resolve, reject) => {
+      // Tải hình ảnh từ URL
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url);
+      xhr.responseType = "blob";
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          const reader = new FileReader();
+          reader.readAsDataURL(xhr.response);
+          reader.onload = function () {
+            // Chuyển đổi hình ảnh sang dữ liệu byte (base64)
+            const base64data = reader.result.split(",")[1];
+            resolve(base64data);
+          };
+          reader.onerror = function (error) {
+            reject(error);
+          };
+        } else {
+          reject(new Error("Failed to load image from URL"));
+        }
+      };
+      xhr.onerror = function () {
+        reject(new Error("Failed to load image from URL"));
+      };
+      xhr.send();
+    });
+  }
+
+  async function convertByteToImage(imageData) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = "data:image/jpeg;base64," + imageData; // Assuming imageData is base64 encoded
+    });
+  }
+
+  function arrayBufferToBase64(arrayBuffer) {
+    let binary = "";
+    const bytes = new Uint8Array(arrayBuffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function bytesToImageData(byteArray, width, height) {
+    const expectedSize = width * height * 4; // Kích thước mong muốn cho một hình ảnh RGBA
+
+    // Kiểm tra xem kích thước mảng byte có phù hợp không
+    if (byteArray.length < expectedSize) {
+      throw new Error("Byte array size is smaller than expected");
+    }
+
+    // Cắt bớt mảng byte nếu nó lớn hơn kích thước mong muốn
+    const trimmedByteArray = byteArray.slice(0, expectedSize);
+
+    // Tạo một Uint8ClampedArray từ mảng byte đã cắt
+    const uint8Array = new Uint8ClampedArray(trimmedByteArray);
+
+    // Tạo một ImageData từ Uint8ClampedArray và kích thước
+    const imageData = new ImageData(uint8Array, width, height);
+
+    return imageData;
+  }
+
+  function sendStringToAPI(inputString) {
+    // Địa chỉ URL của API endpoint
+    var url = `http://localhost:24112/api/ReturnResultString?result=${inputString}`;
+
+    // Dữ liệu cần gửi lên API
+    var data = {
+      string_data: inputString,
+    };
+
+    console.log(data);
+
+    // Cấu hình cho yêu cầu fetch
+    var requestOptions = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", // Đặt định dạng dữ liệu là JSON
+      },
+      body: JSON.stringify(data), // Chuyển đổi dữ liệu thành chuỗi JSON
+    };
+
+    // Gửi yêu cầu fetch đến API
+    fetch(url)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        // Không gọi response.json() nếu không cần thiết
+        console.log("String sent successfully to API");
+        // Xử lý phản hồi ở đây nếu cần
+      })
+      .catch((error) => {
+        console.error("There was an error:", error);
+      });
+  }
+
+</script>

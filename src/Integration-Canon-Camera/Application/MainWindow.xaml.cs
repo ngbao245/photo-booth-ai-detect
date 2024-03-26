@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using EOSDigital.API;
 using EOSDigital.SDK;
 using Exercise3;
@@ -37,6 +38,8 @@ namespace WpfExample
         int ErrCount;
         object ErrLock = new object();
 
+        private System.Windows.Threading.DispatcherTimer signalCheckTimer;
+
         #endregion
 
         public MainWindow()
@@ -53,6 +56,11 @@ namespace WpfExample
                 SaveFolderBrowser.Description = "Save Images To...";
                 RefreshCamera();
                 IsInit = true;
+
+                signalCheckTimer = new DispatcherTimer();
+                signalCheckTimer.Interval = TimeSpan.FromSeconds(1); // Set the interval to 1 second
+                signalCheckTimer.Tick += SignalCheckTimer_Tick;
+                signalCheckTimer.Start();
             }
             catch (DllNotFoundException) { ReportError("Canon DLLs not found!", true); }
             catch (Exception ex) { ReportError(ex.Message, true); }
@@ -101,12 +109,38 @@ namespace WpfExample
                     EvfImage.StreamSource = s;
                     EvfImage.CacheOption = BitmapCacheOption.OnLoad;
                     EvfImage.EndInit();
+
+                    var byteImage = ConvertBitmapImageToByteArray(EvfImage);
+                    var videoService = new VideoService();
+                    videoService.SendVideoDataToRedisChannel(byteImage);
+
                     EvfImage.Freeze();
                     Application.Current.Dispatcher.BeginInvoke(SetImageAction, EvfImage);
                 }
             }
             catch (Exception ex) { ReportError(ex.Message, false); }
         }
+
+        public static byte[] ConvertBitmapImageToByteArray(BitmapImage bitmapImage)
+        {
+            // Chuyển đổi BitmapImage thành BitmapSource
+            BitmapSource bitmapSource = bitmapImage;
+
+            // Tạo một MemoryStream để lưu trữ dữ liệu byte
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                // Tạo một Encoder để mã hóa BitmapSource thành dữ liệu byte
+                BitmapEncoder encoder = new PngBitmapEncoder(); // Sử dụng PNG làm ví dụ, bạn có thể sử dụng các định dạng khác
+                encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+
+                // Ghi dữ liệu byte vào MemoryStream
+                encoder.Save(memoryStream);
+
+                // Trả về mảng byte chứa dữ liệu hình ảnh
+                return memoryStream.ToArray();
+            }
+        }
+
 
         private void MainCamera_DownloadReady(Camera sender, DownloadInfo Info)
         {
@@ -206,9 +240,7 @@ namespace WpfExample
 
             try
             {
-                int delaySeconds = 5;
-
-                MessageBox.Show($"Photo will be taken in {delaySeconds} seconds.", "Countdown", MessageBoxButton.OK, MessageBoxImage.Information);
+                int delaySeconds = 0;
 
                 TakePhotoButton.IsEnabled = false;
                 VideoButton.IsEnabled = false;
@@ -335,6 +367,7 @@ namespace WpfExample
                 {
                     LVCanvas.Background = bgbrush;
                     MainCamera.StartLiveView();
+
                     StarLVButton.Content = "Stop LV";
                 }
                 else
@@ -479,6 +512,61 @@ namespace WpfExample
                     Cloud.UploadToDrive(credentialsPath, folderId, imageUploadPath);
                 }
             }
+        }
+
+        private void SignalCheckTimer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                int delaySeconds = 5;
+
+                ResultService rs = new ResultService();
+                var signal = rs.ListenForData();
+
+                if (signal == "Hand")
+                {
+                    MessageBoxResult result = MessageBox.Show($"Photo will be taken in {delaySeconds} seconds.", "Countdown", MessageBoxButton.OKCancel, MessageBoxImage.Information);
+
+                    if (result == MessageBoxResult.OK)
+                    {
+                        takePhoto(delaySeconds);
+                        signalCheckTimer.Stop();
+                    }
+                    else if (result == MessageBoxResult.Cancel)
+                    {
+                        signalCheckTimer.Stop();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ReportError(ex.Message, false);
+            }
+        }
+
+        private void takePhoto(int delaySeconds)
+        {
+            TakePhotoButton.IsEnabled = false;
+            VideoButton.IsEnabled = false;
+
+            System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer();
+            timer.Interval = TimeSpan.FromSeconds(delaySeconds);
+            timer.Tick += (senderTimer, eTimer) =>
+            {
+                if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
+                else MainCamera.TakePhotoAsync();
+
+                TakePhotoButton.IsEnabled = true;
+                VideoButton.IsEnabled = true;
+
+                timer.Stop();
+            };
+            timer.Start();
+        }
+
+        private void Button_Click_1(object sender, RoutedEventArgs e)
+        {
+            signalCheckTimer.Start();
         }
     }
 }
