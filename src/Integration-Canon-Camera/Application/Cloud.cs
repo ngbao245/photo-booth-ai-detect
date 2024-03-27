@@ -9,7 +9,7 @@ namespace Exercise3
 {
     public static class Cloud
     {
-        public static void UploadToDrive(string credentialsPath, string folderId, string imageUploadPath)
+        public static bool UploadToDrive(string credentialsPath, string folderId, string imageUploadPath)
         {
             try
             {
@@ -18,8 +18,8 @@ namespace Exercise3
                 {
                     credential = GoogleCredential.FromStream(credentialsStream).CreateScoped(new[]
                     {
-                    DriveService.ScopeConstants.DriveFile
-                });
+                        DriveService.ScopeConstants.DriveFile
+                    });
 
                     var service = new DriveService(new BaseClientService.Initializer()
                     {
@@ -45,16 +45,19 @@ namespace Exercise3
                     if (uploadedImage != null && fileMetaData != null)
                     {
                         System.Windows.MessageBox.Show($"Image {fileMetaData.Name} uploaded with ID {uploadedImage.Id}.");
+                        return true;
                     }
                     else
                     {
                         System.Windows.MessageBox.Show("Error uploading the image to Google Drive.");
+                        return false;
                     }
                 }
             }
             catch (Exception ex)
             {
                 System.Windows.MessageBox.Show($"An error occurred: {ex.Message}");
+                return false;
             }
         }
     }

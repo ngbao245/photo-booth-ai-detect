@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Media;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -231,34 +232,18 @@ namespace WpfExample
 
         private void TakePhotoButton_Click(object sender, RoutedEventArgs e)
         {
-            //try
-            //{
-            //    if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
-            //    else MainCamera.TakePhotoAsync();
-            //}
-            //catch (Exception ex) { ReportError(ex.Message, false); }
-
             try
             {
-                int delaySeconds = 0;
-
-                TakePhotoButton.IsEnabled = false;
-                VideoButton.IsEnabled = false;
-
-                System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer();
-                timer.Interval = TimeSpan.FromSeconds(delaySeconds);
-                timer.Tick += (senderTimer, eTimer) =>
+                if ((string)TvCoBox.SelectedItem == "Bulb")
                 {
-                    if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
-                    else MainCamera.TakePhotoAsync();
-
-                    TakePhotoButton.IsEnabled = true;
-                    VideoButton.IsEnabled = true;
-
-                    timer.Stop();
-                };
-
-                timer.Start();
+                    PlaySound();
+                    MainCamera.TakePhotoBulbAsync(BulbTime);
+                }
+                else
+                {
+                    PlaySound();
+                    MainCamera.TakePhotoAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -497,19 +482,33 @@ namespace WpfExample
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            string credentialsPath = "C:\\Users\\BiBo\\Desktop\\Integrate Canon\\EDSDKLib-1.1.2\\Application\\credentials.json";
+            string credentialsPath = "C:\\Users\\BiBo\\Desktop\\Photo_Booth_AI_Detect\\src\\Integration-Canon-Camera\\Application\\credentials.json";
             string folderId = "1IVKxzW051jm7OaJ12Lrau4EcJ59eD3zA";
 
             string[] files = Directory.GetFiles(SavePathTextBox.Text);
 
-            MessageBoxResult result = System.Windows.MessageBox.Show($"Upload {files.Count()} image to Drive?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            MessageBoxResult result = MessageBox.Show($"Upload {files.Length} image to Drive?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
             if (result == MessageBoxResult.Yes)
             {
+                bool allUploaded = true;
                 foreach (string file in files)
                 {
-                    string imageUploadPath = file;
-                    Cloud.UploadToDrive(credentialsPath, folderId, imageUploadPath);
+                    bool uploaded = Cloud.UploadToDrive(credentialsPath, folderId, file);
+                    if (!uploaded)
+                    {
+                        allUploaded = false;
+                        break; // Stop uploading if any file fails to upload
+                    }
+                }
+
+                if (allUploaded)
+                {
+                    System.Diagnostics.Process.Start("https://drive.google.com/drive/u/0/folders/1IVKxzW051jm7OaJ12Lrau4EcJ59eD3zA");
+                }
+                else
+                {
+                    MessageBox.Show("Some files failed to upload. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -546,20 +545,41 @@ namespace WpfExample
 
         private void takePhoto(int delaySeconds)
         {
+            int countdown = delaySeconds;
+
             TakePhotoButton.IsEnabled = false;
             VideoButton.IsEnabled = false;
 
-            System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer();
-            timer.Interval = TimeSpan.FromSeconds(delaySeconds);
+            DispatcherTimer timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromSeconds(1);
             timer.Tick += (senderTimer, eTimer) =>
             {
-                if ((string)TvCoBox.SelectedItem == "Bulb") MainCamera.TakePhotoBulbAsync(BulbTime);
-                else MainCamera.TakePhotoAsync();
+                if (countdown > 0)
+                {
+                    lbCount.Content = countdown.ToString();
+                    countdown--;
+                }
+                else
+                {
+                    lbCount.Content = "cheeseee";
 
-                TakePhotoButton.IsEnabled = true;
-                VideoButton.IsEnabled = true;
+                    if ((string)TvCoBox.SelectedItem == "Bulb")
+                    {
+                        PlaySound();
+                        MainCamera.TakePhotoBulbAsync(BulbTime);
+                    }
+                    else
+                    {
+                        PlaySound();
+                        MainCamera.TakePhotoAsync();
+                    }
 
-                timer.Stop();
+                    TakePhotoButton.IsEnabled = true;
+                    VideoButton.IsEnabled = true;
+
+                    timer.Stop();
+                    lbCount.Content = "";
+                }
             };
             timer.Start();
         }
@@ -567,6 +587,29 @@ namespace WpfExample
         private void Button_Click_1(object sender, RoutedEventArgs e)
         {
             signalCheckTimer.Start();
+        }
+
+        private void PlaySound()
+        {
+            string soundFilePath = @"C:\Users\BiBo\Desktop\Photo_Booth_AI_Detect\src\Integration-Canon-Camera\Application\SFX\CameraSoundEffect.wav"; // Update with the actual path
+
+            if (File.Exists(soundFilePath))
+            {
+                try
+                {
+                    SoundPlayer mediaPlayer = new SoundPlayer(soundFilePath);
+
+                    mediaPlayer.Play();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("An error occurred while playing the sound: " + ex.Message);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Sound file not found at the specified path.");
+            }
         }
     }
 }

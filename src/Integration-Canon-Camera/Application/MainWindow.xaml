@@ -45,6 +45,10 @@
         </GroupBox>
         <GroupBox x:Name="LiveViewGroupBox" Header="Screen" Margin="10,195,10,10" Grid.ColumnSpan="2" IsEnabled="False">
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="404*"/>
+                    <ColumnDefinition Width="209*"/>
+                </Grid.ColumnDefinitions>
                 <Button x:Name="StarLVButton" Content="Start " HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="75" Click="StarLVButton_Click"/>
                 <Button x:Name="FocusNear3Button" Content="&lt;&lt;&lt;" HorizontalAlignment="Left" Margin="145,10,0,0" VerticalAlignment="Top" Width="35" Click="FocusNear3Button_Click"/>
                 <Button x:Name="FocusNear2Button" Content="&lt;&lt;" HorizontalAlignment="Left" Margin="185,10,0,0" VerticalAlignment="Top" Width="25" Click="FocusNear2Button_Click"/>
@@ -52,10 +56,11 @@
                 <Button x:Name="FocusFar3Button" Content="&gt;&gt;&gt;" HorizontalAlignment="Left" Margin="295,10,0,0" VerticalAlignment="Top" Width="35" Click="FocusFar3Button_Click"/>
                 <Button x:Name="FocusFar2Button" Content="&gt;&gt;" HorizontalAlignment="Left" Margin="265,10,0,0" VerticalAlignment="Top" Width="25" Click="FocusFar2Button_Click"/>
                 <Button x:Name="FocusFar1Button" Content="&gt;" HorizontalAlignment="Left" Margin="240,10,0,0" VerticalAlignment="Top" Width="20" Click="FocusFar1Button_Click"/>
-                <Canvas x:Name="LVCanvas" Margin="10,37,10,10" Background="LightGray" />
-                <Button Content="Upload To Drive" HorizontalAlignment="Left" Margin="489,10,0,0" VerticalAlignment="Top" Width="99" Click="Button_Click"/>
-                <Button Content="Reset" HorizontalAlignment="Left" Margin="434,10,0,0" VerticalAlignment="Top" Width="50" Click="Button_Click_1"/>
+                <Canvas x:Name="LVCanvas" Margin="10,37,10,10" Background="LightGray" Grid.ColumnSpan="2" />
+                <Button Content="Upload To Drive" HorizontalAlignment="Left" Margin="85,10,0,0" VerticalAlignment="Top" Width="99" Click="Button_Click" Grid.Column="1"/>
+                <Button Content="Reset" HorizontalAlignment="Left" Margin="338,-143,0,0" VerticalAlignment="Top" Width="145" Click="Button_Click_1" Grid.ColumnSpan="2"/>
             </Grid>
         </GroupBox>
+        <Label x:Name="lbCount" Content="" HorizontalAlignment="Center" Margin="0,249,0,0" VerticalAlignment="Top" Height="400" Width="594" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontWeight="Bold" FontSize="72" Foreground="#FFC91F1F"/>
     </Grid>
 </Window>
